@@ -1447,7 +1447,7 @@ function End-Pay {
 function Pay-Tick {
   if ($S.pay -le 0) {
     if (-not $S.cool -and $S.shadeStep -eq 0 -and $S.cup -eq 0 -and $S.dream -eq 0 -and $S.flag -eq 0 -and $S.wizPhase -eq '' -and $S.det -eq 0 -and $S.bug -eq 0 -and $S.eat -eq 0 -and $S.act -eq '') {
-      if (-not $S.payDone -and $S.minute -ge $S.payAt -and $S.minute -lt 1140) { $S.payDone = $true; $S.pay = 1 }
+      if (-not $S.payDone -and $S.minute -ge $S.payAt -and $S.minute -lt 1140) { Mark-Done 'pay'; $S.pay = 1 }
     }
     if ($S.pay -le 0) { return $false }
   }
@@ -1612,7 +1612,7 @@ function End-Wizard {
 function Wizard-Tick {
   if ($S.wizPhase -eq '') {
     if (-not $S.cool -and $S.shadeStep -eq 0 -and $S.cup -eq 0 -and $S.dream -eq 0 -and $S.pay -eq 0 -and $S.flag -eq 0 -and $S.det -eq 0 -and $S.bug -eq 0 -and $S.eat -eq 0 -and $S.act -eq '') {
-      if (-not $S.wizDone -and $S.minute -ge $S.wizAt -and $S.minute -lt 1140) { $S.wizDone = $true; Start-Wizard }
+      if (-not $S.wizDone -and $S.minute -ge $S.wizAt -and $S.minute -lt 1140) { Mark-Done 'wiz'; Start-Wizard }
     }
     if ($S.wizPhase -eq '') { return $false }
   }
@@ -1969,6 +1969,18 @@ function New-MealDay {
   $S.payAt = Rand 600 1020; $S.payDone = -not (Test-PayWeek)          # 10:00-17:00, only in the last week of the month
   $S.wizAt = Rand 570 1050; $S.wizDone = (Rand 1 5) -ne 1             # 9:30-17:30, on about one day in five
   $S.sunAt = Rand 960 1050; $S.sunDone = (Get-Date).DayOfWeek -ne 'Friday'   # Friday 16:00-17:30
+  # what already happened today, also before a restart (else every restart brings an overdue payday or meal at once)
+  try { if (Test-Path $dayFile) { foreach ($ln in Get-Content $dayFile) { $bits = $ln -split ' '; if ($bits[0] -eq $S.mealDay -and $bits.Count -gt 1) { $S[$bits[1] + 'Done'] = $true } } } } catch {}
+}
+$dayFile = Join-Path $petDir 'today.txt'
+# a clock pose (meal, payday, wizard, beach) has started: not again today, even after a restart
+function Mark-Done([string]$what) {
+  $S[$what + 'Done'] = $true
+  if ($TestSeconds -gt 0) { return }
+  try {
+    $keep = @(); if (Test-Path $dayFile) { $keep = @(Get-Content $dayFile | Where-Object { $_ -like "$($S.mealDay) *" }) }
+    Set-Content $dayFile (@($keep) + "$($S.mealDay) $what")
+  } catch {}
 }
 function Start-Meal([string]$food) {
   if ($S.cup -gt 0) { End-Coffee }; if ($S.dream -gt 0) { End-Dream }; if ($S.pay -gt 0) { End-Pay }
@@ -1983,8 +1995,8 @@ function Meal-Tick {
   if ($S.eat -le 0) {
     if ($S.mealDay -ne (Get-Date).ToString('yyyy-MM-dd')) { New-MealDay }
     $free = -not $S.waiting -and -not $S.cool -and $S.shadeStep -eq 0 -and $S.cup -eq 0 -and $S.dream -eq 0 -and $S.pay -eq 0 -and $S.flag -eq 0 -and $S.wizPhase -eq '' -and $S.det -eq 0 -and $S.bug -eq 0 -and $S.eat -eq 0 -and $S.act -eq ''
-    if ($free -and -not $S.croissantDone -and $S.minute -ge $S.croissantAt -and $S.minute -lt 660) { $S.croissantDone = $true; Start-Meal 'croissant' }
-    elseif ($free -and -not $S.sandwichDone -and $S.minute -ge $S.sandwichAt -and $S.minute -lt 810) { $S.sandwichDone = $true; Start-Meal 'sandwich' }
+    if ($free -and -not $S.croissantDone -and $S.minute -ge $S.croissantAt -and $S.minute -lt 660) { Mark-Done 'croissant'; Start-Meal 'croissant' }
+    elseif ($free -and -not $S.sandwichDone -and $S.minute -ge $S.sandwichAt -and $S.minute -lt 810) { Mark-Done 'sandwich'; Start-Meal 'sandwich' }
     if ($S.eat -le 0) { return $false }
   }
   $k = $S.eat
@@ -2316,7 +2328,7 @@ $tickBody = {
       if ($S.hour -ge 18) { $S.nextMusic-- }
     }
     if ($S.cup -eq 0 -and $S.shadeStep -eq 0) { $S.nextNap--; if ($S.nextNap -le 0) { Start-Nap } }
-    if ($S.state -eq 'code' -and $S.cup -eq 0 -and $S.dream -eq 0 -and $S.pay -eq 0 -and $S.flag -eq 0 -and $S.wizPhase -eq '' -and $S.det -eq 0 -and $S.bug -eq 0 -and $S.eat -eq 0 -and $S.act -eq '' -and $S.shadeStep -eq 0) { if (-not $S.sunDone -and $S.minute -ge $S.sunAt -and $S.minute -lt 1140) { $S.sunDone = $true; Start-Sun } }
+    if ($S.state -eq 'code' -and $S.cup -eq 0 -and $S.dream -eq 0 -and $S.pay -eq 0 -and $S.flag -eq 0 -and $S.wizPhase -eq '' -and $S.det -eq 0 -and $S.bug -eq 0 -and $S.eat -eq 0 -and $S.act -eq '' -and $S.shadeStep -eq 0) { if (-not $S.sunDone -and $S.minute -ge $S.sunAt -and $S.minute -lt 1140) { Mark-Done 'sun'; Start-Sun } }
     if ($S.state -eq 'code' -and $S.cup -eq 0 -and $S.shadeStep -eq 0 -and -not $S.cool) { $S.nextMusic--; if ($S.nextMusic -le 0) { Start-Music } }
     if (Call-Tick) { }
     elseif (Shades-Tick) { }

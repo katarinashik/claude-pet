@@ -63,7 +63,7 @@ They write the time into files that the pet checks about once a second:
 
 - Coffee is more likely 8–11, the nap 13–15, music after 18 (their random timers count down twice as fast then).
 - Meals run once a day each, by the clock, not by a random timer (`Meal-Tick`): a croissant at a random minute 8:30–10:45 (until 11:00), a sandwich 12:20–12:50 (until 13:30). He waits for a free moment. Each meal ends with the broom cleanup.
-- Payday: once a day at a random minute 10:00–17:00, only in the last 7 days of the month. Wizard: 9:30–17:30 on about one day in five. Beach: Friday 16:00–17:30. All three wait for a free moment, until 19:00.
+- Payday: once a day at a random minute 10:00–17:00, only in the last 7 days of the month. Wizard: 9:30–17:30 on about one day in five. Beach: Friday 16:00–17:30. All three wait for a free moment, until 19:00. What already ran today is kept in `%USERPROFILE%\ClaudePet	oday.txt` (`Mark-Done`), so a restart doesn't bring an overdue payday or meal straight away: it used to, after every restart.
 
 ## How the art works
 
