@@ -614,6 +614,9 @@ $paper.Visibility = 'Hidden'
 # the closed laptop put down on the floor beside him while he reads
 $laptopAside = Add-Art $scene 0 13 @('GGGGGGGG', 'KKKWKKKK', 'DDDDDDDD') @{ G = $lidTop; K = $lidC; W = $logo; D = $hingeC }
 foreach ($el in $laptopAside) { $el.Visibility = 'Hidden' }
+# the closed laptop carried under his arm (the ear bump on top holds it), when he leaves and when he comes back
+$laptopTuck = Add-Art $upper 0 8 @('GGGGGGGG', 'KKKWKKKK', 'DDDDDDDD') @{ G = $lidTop; K = $lidC; W = $logo; D = $hingeC }
+foreach ($el in $laptopTuck) { $el.Visibility = 'Hidden' }
 # weather looks, each shown while that weather is on:
 # snow: white flakes and a red bobble hat; wind: leaves and streaks blowing past; clouds: a grey cloud drifting over him;
 # heat: a sun in the corner and a drop of sweat (with the sunglasses); storm: a dark cloud with a lightning bolt (and the rain)
@@ -1032,6 +1035,7 @@ function Set-Paper([bool]$on, [int]$dy) {
   foreach ($el in $armR) { Show-If $el ((-not $on) -and $S.lv -ge 4) }
 }
 function Set-LaptopAside([bool]$on) { foreach ($el in $laptopAside) { Show-If $el $on } }
+function Set-LaptopTuck([bool]$on) { foreach ($el in $laptopTuck) { Show-If $el $on } }
 # the weather look: '' none, 'snow', 'wind', 'cloud', 'heat', 'storm'; $frame moves flakes, leaves and the cloud
 function Set-Weather([string]$w, [int]$frame) {
   $b = $frame % 2 -eq 1
@@ -1215,7 +1219,7 @@ $MIN = [int](60000 / 70)   # timer ticks in one minute
 # --- state ------------------------------------------------------------------
 # all window positions are in real screen pixels, the same units Windows uses for other windows
 $S = @{
-  state = 'hidden'; fresh = $true; t = 0; hover = $false; dx = 0
+  state = 'hidden'; greet = $false; byeT = 0; byeWave = 0; fresh = $true; t = 0; hover = $false; dx = 0
   blink = 0; blinkIn = 40; glance = 0; glanceDx = 0; nextGlance = 90
   burst = 30; pause = 0; scroll = 0
   cool = $false; coolT = 0; nextCool = (Rand (4 * $MIN) (8 * $MIN)); shadeStep = 0; shadeDir = 1
@@ -1260,6 +1264,65 @@ function Get-AreaAt([double]$x, [double]$y) {
   }
   $null
 }
+# "Bye, Claude": he closes the lid, waves at you, takes the laptop under his arm and walks off the right edge of the screen;
+# then the pet closes. The start is the same in reverse (Greet-Tick): in from the right edge, a wave, the laptop opens
+function Start-Bye {
+  if ($S.state -eq 'bye') { return }
+  if ($S.state -eq 'nap') { End-Nap }; if ($S.state -eq 'music') { End-Music }; if ($S.state -eq 'sun') { End-Sun }
+  if ($S.shadeStep -gt 0) { End-Shades }
+  if ($S.cup -gt 0) { End-Coffee }; if ($S.dream -gt 0) { End-Dream }; if ($S.pay -gt 0) { End-Pay }; if ($S.flag -gt 0) { End-Flag }; if ($S.wizPhase -ne '') { End-Wizard }; if ($S.det -gt 0) { End-Det }; if ($S.bug -gt 0) { End-Bug }; if ($S.eat -gt 0) { End-Meal }; if ($S.act -ne '') { End-Act }
+  if ($S.calling) { $S.calling = $false }
+  Set-ArmUp $false; Set-Paws 0 0 $false $false; Set-Legs -1; $flip.ScaleX = 1; $bob.Y = 0
+  if ($S.lv -lt 1) { $S.lv = 1; Set-Laptop 1 }
+  Set-LaptopTuck $false; $win.Opacity = 1
+  $S.byeT = 0; $S.state = 'bye'
+}
+function Close-Bye { $script:byeChosen = $true; $timer.Stop(); $win.Close() }
+function Bye-Tick {
+  $S.byeT++; $k = $S.byeT
+  $bang.Visibility = 'Hidden'
+  if ($S.lv -gt 1) {
+    # the lid comes down, a step every two ticks
+    Set-Eyes 0 3 $false
+    if ($k % 2 -eq 0) { $S.lv--; Set-Laptop $S.lv }
+    $S.byeWave = $k
+    return
+  }
+  $w = $k - $S.byeWave
+  if ($w -lt 36) {
+    # looks at you and waves: hand up, down, up
+    Set-Eyes -1 2 $false; Set-Happy ($w -ge 6); Set-ArmUp ([Math]::Floor($w / 6) % 2 -eq 0)
+    return
+  }
+  if ($w -lt 46) {
+    # takes the closed laptop under his arm
+    Set-ArmUp $false; Set-Happy $false; Set-Eyes 0 3 $false
+    $S.lv = 0; Set-Laptop 0; Set-LaptopTuck $true
+    $cur = [PetWin]::GetRect($S.hwnd); $S.px = [double]$cur.Left; $S.py = [double]$cur.Top
+    return
+  }
+  # walks off the right edge of the screen, then the pet closes (at most 20 s, in case the window can't go further)
+  $flip.ScaleX = -1; Set-Eyes 1 3 $false
+  Set-Legs ([int][Math]::Floor($k / 3) % 2); $bob.Y = ([int][Math]::Floor($k / 3) % 2) * $PX
+  $S.px += $S.speed
+  [PetWin]::MoveTo($S.hwnd, [int]$S.px, [int]$S.py)
+  $edge = (Get-MyScreen).Right
+  if ($S.px -gt $edge + 4 -or $k -gt 300) { Close-Bye }
+}
+function Greet-Tick {
+  $S.byeT++; $k = $S.byeT
+  $bang.Visibility = 'Hidden'
+  if ($k -lt 30) {
+    # stops in his corner, looks at you and waves hi
+    Set-Legs -1; $bob.Y = 0
+    Set-Eyes -1 2 $false; Set-Happy ($k -ge 4); Set-ArmUp ([Math]::Floor($k / 6) % 2 -eq 0)
+    return
+  }
+  # puts the laptop down and opens it (unpack lifts the lid the rest of the way)
+  Set-ArmUp $false; Set-Happy $false
+  Set-LaptopTuck $false; $S.lv = 1; Set-Laptop 1
+  $S.state = 'unpack'
+}
 # walk along the taskbar: straight to the edge of this screen, hop onto the other screen's taskbar, walk on
 function Start-Walk($tx, $ty) {
   $cur = [PetWin]::GetRect($S.hwnd)
@@ -1273,6 +1336,7 @@ function Start-Walk($tx, $ty) {
     [void]$S.path.Add(@{ x = $bx; y = $ty; hop = $true })
   }
   [void]$S.path.Add(@{ x = $tx; y = $ty; hop = $false })
+  Set-LaptopTuck $true
   $S.state = 'walk'
 }
 
@@ -2114,7 +2178,9 @@ $tickBody = {
   # he stays on top of every window, even ones that also want to be on top (the taskbar, other overlays)
   if ($check -and $S.hwnd -ne [IntPtr]::Zero) { [PetWin]::KeepOnTop($S.hwnd) }
 
-  if ($S.hover -and $win.Opacity -gt 0) {
+  if ($S.state -eq 'bye') { Bye-Tick }
+  elseif ($S.state -eq 'greet') { Greet-Tick }
+  elseif ($S.hover -and $win.Opacity -gt 0) {
     # caught! stop and look at you
     Set-Paws 0 0 $false $false
     Set-Legs -1
@@ -2183,12 +2249,13 @@ $tickBody = {
     elseif ($S.bang -gt 0) { $S.bang--; $bang.Visibility = 'Visible' }
   }
   elseif ($S.state -eq 'hidden') {
-    # only at the start: pop up a bit to the left of his corner and walk in
+    # only at the start: he comes in from the right edge of his screen with the laptop under his arm and says hi
     $win.Opacity = 0
     $spot = Get-HomeSpot
     $S.fresh = $false
     $S.lv = 0; Set-Laptop 0
-    [PetWin]::MoveTo($S.hwnd, $spot.x - 4 * $S.margin, $spot.y)
+    [PetWin]::MoveTo($S.hwnd, (Get-MyScreen).Right, $spot.y)
+    $S.greet = $true
     Start-Walk $spot.x $spot.y
   }
   elseif ($S.state -eq 'pack') {
@@ -2213,9 +2280,10 @@ $tickBody = {
     Set-Legs ([int][Math]::Floor($t / 3) % 2)
     Set-Eyes -1 2 $blinking
     $bob.Y = ([int][Math]::Floor($t / 3) % 2) * $PX
-    if ($S.path.Count -eq 0) { $S.state = 'unpack'; Set-Legs -1; $flip.ScaleX = 1 }
+    if ($S.path.Count -eq 0) { Set-Legs -1; $flip.ScaleX = 1; if ($S.greet) { $S.greet = $false; $S.state = 'greet'; $S.byeT = 0 } else { $S.state = 'unpack' } }
   }
   elseif ($S.state -eq 'unpack') {
+    Set-LaptopTuck $false
     Set-Eyes 0 3 $blinking
     $bob.Y = 0
     if ($t % 2 -eq 0) { $S.lv++; Set-Laptop $S.lv }
@@ -2322,6 +2390,7 @@ $scene.Add_MouseLeftButtonDown({
     $pick.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.MenuItem]::ClickEvent)))
     return
   }
+  if ($S.state -eq 'bye') { return }
   try { $win.DragMove() } catch {}
   if ($S.state -eq 'nap') { End-Nap }
   if ($S.state -eq 'music') { End-Music }
@@ -2330,7 +2399,7 @@ $scene.Add_MouseLeftButtonDown({
   if ($S.pay -gt 0) { End-Pay }
   if ($S.flag -gt 0) { End-Flag }
   if ($S.wizPhase -ne '') { End-Wizard }; if ($S.det -gt 0) { End-Det }; if ($S.bug -gt 0) { End-Bug }; if ($S.eat -gt 0) { End-Meal }; if ($S.act -ne '') { End-Act }
-  $S.lv = 4; Set-Laptop 4; Set-Legs -1; $flip.ScaleX = 1
+  $S.lv = 4; Set-Laptop 4; Set-LaptopTuck $false; Set-Legs -1; $flip.ScaleX = 1
   $S.state = 'code'
 })
 
@@ -2365,7 +2434,7 @@ $miHome.Add_SubmenuOpened({
 [void]$miHome.Items.Add((New-Object System.Windows.Controls.MenuItem))   # a placeholder, so the submenu arrow shows
 $miQuit = New-Object System.Windows.Controls.MenuItem
 $miQuit.Header = 'Bye, Claude'
-$miQuit.Add_Click({ $script:byeChosen = $true; $timer.Stop(); $win.Close() })
+$miQuit.Add_Click({ Start-Bye })
 [void]$menu.Items.Add($miHome)
 $miShades = New-Object System.Windows.Controls.MenuItem
 $miShades.Header = 'Sunglasses on / off'

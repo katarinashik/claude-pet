@@ -35,7 +35,7 @@ Copy-Item .\Startup-ClaudePet.vbs "$env:APPDATA\Microsoft\Windows\Start Menu\Pro
 Start-Process wscript.exe "`"$dir\Start-ClaudePet.vbs`""
 ```
 
-Right-click him for the menu: pick the screen, make him do something, or say "Bye, Claude". Double-click starts a random pose. You can drag him around.
+Right-click him for the menu: pick the screen, make him do something, or say "Bye, Claude": he closes his laptop, waves and walks off the screen. The `Claude Pet` button brings him back: he walks in from the edge and says hi. Double-click starts a random pose. You can drag him around.
 
 ## Connect him to Claude Code
 

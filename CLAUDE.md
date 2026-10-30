@@ -57,6 +57,7 @@ They write the time into files that the pet checks about once a second:
 - Often, every 4–8 min of typing: coffee, sunglasses. Sometimes, every 10–20 min: daydream, bug hunt, detective, music. Rare, every 45–90 min: nap. Katya first had longer gaps (8-minute calm, 20 min to 8 h) and found him too still: she likes to see him change poses.
 - By the clock, from the day's plan in `New-MealDay`: croissant, sandwich, payday (once a day in the last week), wizard (one day in five), beach (Friday 16:00–17:30).
 - Events: the flag when Claude Code finishes, the "!" wave when it waits for her.
+- Hello and goodbye (`storyboards/hello.png`, `goodbye.png`): at every start he walks in from the right edge of his screen with the closed laptop under his arm (`$laptopTuck`), waves hi (`Greet-Tick`), puts it down and opens it. "Bye, Claude" (`Start-Bye`, `Bye-Tick`): he closes the lid, waves, takes the laptop under his arm and walks off the right edge; only then the pet closes. Any walk (a screen change too) carries the laptop under his arm.
 
 ## Poses tied to the clock
 
