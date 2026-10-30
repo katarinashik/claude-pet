@@ -26,9 +26,9 @@ Every pose has its storyboard in `storyboards/`.
 ## Install
 
 ```powershell
-$dir = "$env:LOCALAPPDATA\ClaudePet"
+$dir = "$env:USERPROFILE\ClaudePet"
 New-Item -ItemType Directory -Force $dir | Out-Null
-Copy-Item .\ClaudePet.ps1, .\Start-ClaudePet.vbs, .\hooks\stop-hook.ps1 $dir -Force
+Copy-Item .\ClaudePet.ps1, .\Start-ClaudePet.vbs, .\hooks\stop-hook.ps1, .\ClaudePet.ico $dir -Force
 # start with Windows
 Copy-Item .\Startup-ClaudePet.vbs "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\Claude Pet.vbs"
 # start now
@@ -45,18 +45,18 @@ Add these hooks to `~/.claude/settings.json`. They only write the current time i
 {
   "hooks": {
     "UserPromptSubmit": [
-      { "hooks": [ { "type": "command", "command": "cmd.exe", "args": ["/c", "echo %date% %time%> %LOCALAPPDATA%\\ClaudePet\\busy.txt"] } ] }
+      { "hooks": [ { "type": "command", "command": "cmd.exe", "args": ["/c", "echo %date% %time%> %USERPROFILE%\\ClaudePet\\busy.txt"] } ] }
     ],
     "PostToolUse": [
-      { "matcher": "*", "hooks": [ { "type": "command", "command": "cmd.exe", "args": ["/c", "echo %date% %time%> %LOCALAPPDATA%\\ClaudePet\\busy.txt"] } ] }
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "cmd.exe", "args": ["/c", "echo %date% %time%> %USERPROFILE%\\ClaudePet\\busy.txt"] } ] }
     ],
     "Notification": [
       { "matcher": "permission_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input",
-        "hooks": [ { "type": "command", "command": "cmd.exe", "args": ["/c", "echo %date% %time%> %LOCALAPPDATA%\\ClaudePet\\wait.txt"] } ] }
+        "hooks": [ { "type": "command", "command": "cmd.exe", "args": ["/c", "echo %date% %time%> %USERPROFILE%\\ClaudePet\\wait.txt"] } ] }
     ],
     "Stop": [
       { "hooks": [ { "type": "command", "command": "powershell.exe",
-          "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "%LOCALAPPDATA%\\ClaudePet\\stop-hook.ps1"] } ] }
+          "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "%USERPROFILE%\\ClaudePet\\stop-hook.ps1"] } ] }
     ]
   }
 }
@@ -66,7 +66,7 @@ The Stop hook reads the turn's transcript. It raises the flag when a turn ends (
 
 ## Settings
 
-Optional: `%LOCALAPPDATA%\ClaudePet\settings.json`.
+Optional: `%USERPROFILE%\ClaudePet\settings.json`.
 
 ```json
 {
@@ -89,4 +89,4 @@ Optional: `%LOCALAPPDATA%\ClaudePet\settings.json`.
 - `Startup-ClaudePet.vbs`: goes in the Windows Startup folder; waits for the launcher, then starts it.
 - `hooks/stop-hook.ps1`: the Claude Code Stop hook.
 - `frames/` and `tools/Make-Storyboard.ps1`: render any pose as a storyboard picture from the real script.
-- `%LOCALAPPDATA%\ClaudePet\pet.log`: starts, stops, weather changes and errors. Look here if he goes missing.
+- `%USERPROFILE%\ClaudePet\pet.log`: starts, stops, weather changes and errors. Look here if he goes missing.

@@ -4,8 +4,8 @@
 # wrapped up (wrap_up), which means the work is done.
 # ask.txt: only when that turn ended with a question for Katya, so the pet calls her with a "!".
 # A question = buttons with a question at the end of the turn (wrap_up with an "ask"), a question dialog (AskUserQuestion),
-# or the turn's last text ending in "?". Installed to %LOCALAPPDATA%\ClaudePet\stop-hook.ps1.
-$dir = Join-Path $env:LOCALAPPDATA 'ClaudePet'
+# or the turn's last text ending in "?". Installed to %USERPROFILE%\ClaudePet\stop-hook.ps1.
+$dir = Join-Path $env:USERPROFILE 'ClaudePet'
 $stamp = Get-Date -Format 'dd/MM/yyyy HH:mm:ss'
 $asks = $false; $wrapped = $false; $byAgent = $false
 try {

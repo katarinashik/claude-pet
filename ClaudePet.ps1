@@ -3,8 +3,11 @@ param([int]$TestSeconds = 0, [string]$Log = '')
 $mutex = New-Object System.Threading.Mutex($false, 'Local\ClaudeDesktopPet')
 if (-not $mutex.WaitOne(0)) { exit }
 
+# everything of his lives in %USERPROFILE%\ClaudePet: not in %LOCALAPPDATA%, which the Claude desktop app keeps
+# in its own sandbox (Windows outside the app can't see it there, and the app closed him with its session)
+$petDir = Join-Path $env:USERPROFILE 'ClaudePet'
 # pet.log: when he starts, when and why he stops, and any error inside (kept small)
-$petLog = Join-Path $env:LOCALAPPDATA 'ClaudePet\pet.log'
+$petLog = Join-Path $petDir 'pet.log'
 function Write-PetLog([string]$msg) {
   if ($TestSeconds -gt 0) { return }
   try {
@@ -1238,7 +1241,7 @@ $S = @{
 }
 
 # his screen: the one you picked in the menu (remembered in screen.txt), the main screen if it isn't there
-$screenFile = Join-Path $env:LOCALAPPDATA 'ClaudePet\screen.txt'
+$screenFile = Join-Path $petDir 'screen.txt'
 function Get-MyScreen {
   $areas = @([PetWin]::WorkAreas()); $main = @([PetWin]::Primaries())
   $i = -1; try { $i = [int](Get-Content $screenFile -ErrorAction Stop | Select-Object -First 1) } catch {}
@@ -1395,23 +1398,23 @@ function Pay-Tick {
   return $true
 }
 # task done: Claude Code writes the time into done.txt when it finishes a task (a Stop hook), he sees it and waves a checkered flag
-$doneFile = Join-Path $env:LOCALAPPDATA 'ClaudePet\done.txt'
+$doneFile = Join-Path $petDir 'done.txt'
 function Get-DoneStamp { try { if (Test-Path $doneFile) { return (Get-Item $doneFile).LastWriteTimeUtc.Ticks } } catch {}; [long]0 }
 $S.doneSeen = Get-DoneStamp   # no wave for what happened before he started
 # a new task finished: wave as soon as he is back at his laptop (at most once a minute)
 # what Claude Code is doing right now, from the times its hooks write: busy.txt when you send a message or a tool finishes,
 # wait.txt when it needs your answer (a permission or a question), done.txt when it finishes
-$busyFile = Join-Path $env:LOCALAPPDATA 'ClaudePet\busy.txt'
-$waitFile = Join-Path $env:LOCALAPPDATA 'ClaudePet\wait.txt'
-$askFile = Join-Path $env:LOCALAPPDATA 'ClaudePet\ask.txt'
+$busyFile = Join-Path $petDir 'busy.txt'
+$waitFile = Join-Path $petDir 'wait.txt'
+$askFile = Join-Path $petDir 'ask.txt'
 function Get-Stamp($path) { try { if (Test-Path $path) { return (Get-Item $path).LastWriteTimeUtc.Ticks } } catch {}; [long]0 }
-# your own settings, optional: %LOCALAPPDATA%\ClaudePet\settings.json, for example
+# your own settings, optional: %USERPROFILE%\ClaudePet\settings.json, for example
 #   { "place": "Lyon", "latitude": 45.764, "longitude": 4.836, "weatherModel": "meteofrance_seamless", "newsLock": "C:\\path\\to\\job\\.lock" }
 # place/latitude/longitude: where the weather comes from. weatherModel: an Open-Meteo model name ("best_match" picks one for you;
 # "meteofrance_seamless" is the closest for France). newsLock: a file that exists while some job of yours runs; he reads the newspaper
 # all that time (empty = no newspaper). Environment variables like %USERPROFILE% work in the path.
 $Cfg = @{ place = 'Lyon'; latitude = 45.764; longitude = 4.836; weatherModel = 'best_match'; newsLock = '' }
-$cfgFile = Join-Path $env:LOCALAPPDATA 'ClaudePet\settings.json'
+$cfgFile = Join-Path $petDir 'settings.json'
 try {
   if (Test-Path $cfgFile) {
     $mine = Get-Content $cfgFile -Raw -Encoding UTF8 | ConvertFrom-Json

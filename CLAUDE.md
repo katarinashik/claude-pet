@@ -1,10 +1,11 @@
 # Claude desktop pet
 
-A little pixel Claude that sits in the bottom-right corner of the screen Katya picks (right-click → Screen, remembered in `%LOCALAPPDATA%\ClaudePet\screen.txt`), always on top of every window, codes on a laptop, does little activities, and reacts to Claude Code through hooks. He walks along the taskbar only when she picks another screen. He no longer hides or moves when a window covers him: she wants to see him all the time. One PowerShell 5.1 + WPF script, no other dependencies.
+A little pixel Claude that sits in the bottom-right corner of the screen Katya picks (right-click → Screen, remembered in `%USERPROFILE%\ClaudePet\screen.txt`), always on top of every window, codes on a laptop, does little activities, and reacts to Claude Code through hooks. He walks along the taskbar only when she picks another screen. He no longer hides or moves when a window covers him: she wants to see him all the time. One PowerShell 5.1 + WPF script, no other dependencies.
 
 ## Files
 
 - `ClaudePet.ps1`: the pet. Source of truth; edit here, then install.
+- `ClaudePet.ico`: his icon for the desktop button, drawn by `tools/Make-Icon.ps1`.
 - `Start-ClaudePet.vbs`: launcher without a console window. Starts the pet again after 5 s if it closes by itself (exit code not 0), at most 20 times. "Bye, Claude" exits 0 and stops it.
 - `tools/Make-Storyboard.ps1`: renders a pose as a picture from the real script, without opening the pet.
 - `frames/<pose>.ps1`: the storyboard frames of each pose (calls to the `Set-*` art functions plus `Shot 'name'`).
@@ -19,14 +20,17 @@ The project is a git repo. `main` is public on GitHub: https://github.com/katari
 ## Install and run
 
 ```powershell
-Copy-Item .\ClaudePet.ps1, .\Start-ClaudePet.vbs "$env:LOCALAPPDATA\ClaudePet" -Force
+Copy-Item .\ClaudePet.ps1, .\Start-ClaudePet.vbs, .\hooks\stop-hook.ps1, .\ClaudePet.ico "$env:USERPROFILE\ClaudePet" -Force
 # stop the launcher first, or it brings the old pet back
 Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*Start-ClaudePet*' -or $_.CommandLine -like '*\ClaudePet\ClaudePet.ps1*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
-Start-Process wscript.exe "`"$env:LOCALAPPDATA\ClaudePet\Start-ClaudePet.vbs`""
+# start him through Explorer, never Start-Process from a Claude tool: then he is a child of the Claude app and dies with its session
+explorer.exe "$([Environment]::GetFolderPath('Desktop'))\Claude Pet.lnk"
 ```
 
+- The install folder is `%USERPROFILE%\ClaudePet`, not `%LOCALAPPDATA%`: the Claude desktop app is an MSIX package, so whatever its tools write under `%LOCALAPPDATA%` lands in its sandbox (`%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Local`), which Windows outside the app can't see. That gave "Can not find script file" at logon and a pet that vanished when the app restarted.
+- The button: `Claude Pet` on the desktop and in the Start menu (wscript + `Start-ClaudePet.vbs`, icon `ClaudePet.ico` from `tools/Make-Icon.ps1`). Clicking it while he runs does nothing (the mutex).
 - Starts with Windows: `Startup-ClaudePet.vbs` is copied to `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Claude Pet.vbs`. It waits up to 2 min for the installed launcher and then starts it. A plain shortcut once ran before the launcher could be read and showed "Can not find script file".
-- `%LOCALAPPDATA%\ClaudePet\pet.log`: starts, stops ("bye" or "closed without bye") and errors inside a tick. Look here first when he is missing.
+- `%USERPROFILE%\ClaudePet\pet.log`: starts, stops ("bye" or "closed without bye") and errors inside a tick. Look here first when he is missing.
 - Test run without touching the installed pet: `powershell -Sta -NoProfile -File .\ClaudePet.ps1 -TestSeconds 30 -Log <file>`. It writes one state line every 6 ticks. For fast tests, copy the script and set `$MIN` to a few ticks, so the tiers and the calm pass in seconds, or set one `next...` counter to a small number. Rename the mutex `Local\ClaudeDesktopPet` and the `PetWin` type in the copy, so it runs next to the real pet.
 
 ## Claude Code hooks (in `~/.claude/settings.json`)
@@ -35,11 +39,11 @@ They write the time into files that the pet checks about once a second:
 
 - `UserPromptSubmit`, and `PostToolUse` with matcher `*` → `busy.txt`: he types faster between poses. Poses keep coming while Claude Code works: Katya watches him exactly then.
 - `Notification` (`permission_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input`) → `wait.txt`: he drops everything, gets up from a nap, the music or the beach, and waves with a "!".
-- `Stop` → `hooks/stop-hook.ps1` (installed to `%LOCALAPPDATA%\ClaudePet\stop-hook.ps1`): writes `done.txt` (he waves a checkered flag, at most once a minute), except after a turn that a background agent's report started (`origin.kind` `task-notification` or `peer` on the turn's first message) and that didn't call `wrap_up`: that session is still waiting for its other agents. It also writes `ask.txt` only when that turn ended with a question for Katya: `wrap_up` with an `ask`, `AskUserQuestion`, or last text ending in "?". After the flag he then waves "!" for a minute. Stop fires for every session, scheduled routines included, which is why a plain "every turn" rule gave false calls.
+- `Stop` → `hooks/stop-hook.ps1` (installed to `%USERPROFILE%\ClaudePet\stop-hook.ps1`): writes `done.txt` (he waves a checkered flag, at most once a minute), except after a turn that a background agent's report started (`origin.kind` `task-notification` or `peer` on the turn's first message) and that didn't call `wrap_up`: that session is still waiting for its other agents. It also writes `ask.txt` only when that turn ended with a question for Katya: `wrap_up` with an `ask`, `AskUserQuestion`, or last text ending in "?". After the flag he then waves "!" for a minute. Stop fires for every session, scheduled routines included, which is why a plain "every turn" rule gave false calls.
 
 ## Settings, weather, the newspaper, the popcorn (acts)
 
-- `%LOCALAPPDATA%\ClaudePet\settings.json` (optional, never in the repo): `place`, `latitude`, `longitude`, `weatherModel`, `newsLock`. Defaults: Lyon, Open-Meteo `best_match`, no newspaper. Katya's own file points at her office and her scraping routine's lock file; keep work-specific places and paths there, not in the code.
+- `%USERPROFILE%\ClaudePet\settings.json` (optional, never in the repo): `place`, `latitude`, `longitude`, `weatherModel`, `newsLock`. Defaults: Lyon, Open-Meteo `best_match`, no newspaper. Katya's own file points at her office and her scraping routine's lock file; keep work-specific places and paths there, not in the code.
 
 - Every 15 min `Weather-Tick` asks Open-Meteo (free, no key) for the place in settings.json, in a background runspace. Empty or broken answers are ignored (they once read as 0 °C and brought the cold scene); a request hanging over 2 min is dropped and asked again.
 - `Get-WxKind` picks one scene, strongest first: storm, snow, rain, drizzle, wind (35 km/h+), cold (3 °C or less), heat (25 °C+), fog (only real fog, codes 45/48), cloudy (partly cloudy or overcast, unless the sun gets through: direct radiation ≥ 40 % of all daylight); clear = nothing. Katya checks against her window: models lag behind morning mist clearing, hence the sun-share rule. Airport METARs (Bron, Saint-Exupéry) were checked too and said the same as the models. pet.log gets the first answer and every change.
