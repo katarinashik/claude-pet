@@ -1827,13 +1827,13 @@ function End-Act {
   if ($was -eq 'pop') { $S.popAt = $S.t + (Rand (3 * $MIN) (5 * $MIN)) }   # a short bowl, then other poses, then popcorn again if it still works
 }
 # returns $true while an act plays; starts one when it is due: the newspaper just came out, Claude Code has been working
-# for more than three and a half minutes (popcorn), or the weather calls for its scene
+# for more than ten minutes (popcorn), or the weather calls for its scene
 function Act-Tick {
   if ($S.act -eq '') {
     $free = -not $S.waiting -and -not $S.cool -and $S.shadeStep -eq 0 -and $S.cup -eq 0 -and $S.dream -eq 0 -and $S.pay -eq 0 -and $S.flag -eq 0 -and $S.wizPhase -eq '' -and $S.det -eq 0 -and $S.bug -eq 0 -and $S.eat -eq 0
     if (-not $free) { return $false }
     if ($S.newsWant) { $S.newsWant = $false; Start-Act 'news' }
-    elseif ($S.busy -and $S.busySince -gt 0 -and ([DateTime]::UtcNow.Ticks - $S.busySince) -gt [long]2100000000 -and $S.t -ge $S.popAt) { Start-Act 'pop' }
+    elseif ($S.busy -and $S.busySince -gt 0 -and ([DateTime]::UtcNow.Ticks - $S.busySince) -gt [long]6000000000 -and $S.t -ge $S.popAt) { Start-Act 'pop' }
     elseif ($S.wx -ne '') { $S.nextWep--; if ($S.nextWep -le 0) { Start-Act "w:$($S.wx)" } }
     if ($S.act -eq '') { return $false }
   }
