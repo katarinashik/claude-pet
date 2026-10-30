@@ -7,6 +7,7 @@ A little pixel Claude that sits in the bottom-right corner of the screen Katya p
 - `ClaudePet.ps1`: the pet. Source of truth; edit here, then install.
 - `ClaudePet.ico`: his icon for the desktop button, drawn by `tools/Make-Icon.ps1`.
 - `Start-ClaudePet.vbs`: launcher without a console window. Starts the pet again after 5 s if it closes by itself (exit code not 0), at most 20 times. "Bye, Claude" exits 0 and stops it.
+- `tools/Test-AllPoses.ps1`: the regression test. Plays every menu item (all poses and weathers) in a fast copy next to the real pet, then the goodbye; reports errors, items that started nothing, leftovers on screen, and PASS/FAIL. Run it before every install: `powershell -Sta -NoProfile -File tools\Test-AllPoses.ps1`.
 - `tools/Make-Storyboard.ps1`: renders a pose as a picture from the real script, without opening the pet.
 - `frames/<pose>.ps1`: the storyboard frames of each pose (calls to the `Set-*` art functions plus `Shot 'name'`).
 - `storyboards/`: the approved storyboards, rendered by the script only.
@@ -63,7 +64,7 @@ They write the time into files that the pet checks about once a second:
 
 - Coffee is more likely 8–11, the nap 13–15, music after 18 (their random timers count down twice as fast then).
 - Meals run once a day each, by the clock, not by a random timer (`Meal-Tick`): a croissant at a random minute 8:30–10:45 (until 11:00), a sandwich 12:20–12:50 (until 13:30). He waits for a free moment. Each meal ends with the broom cleanup.
-- Payday: once a day at a random minute 10:00–17:00, only in the last 7 days of the month. Wizard: 9:30–17:30 on about one day in five. Beach: Friday 16:00–17:30. All three wait for a free moment, until 19:00. What already ran today is kept in `%USERPROFILE%\ClaudePet	oday.txt` (`Mark-Done`), so a restart doesn't bring an overdue payday or meal straight away: it used to, after every restart.
+- Payday: once a day at a random minute 10:00–17:00, only in the last 7 days of the month. Wizard: 9:30–17:30 on about one day in five. Beach: Friday 16:00–17:30. All three wait for a free moment, until 19:00. The day's random times come from a generator seeded by the date, so a restart keeps the same plan. What already ran today is kept in `%USERPROFILE%\ClaudePet	oday.txt` (`Mark-Done`), so a restart doesn't bring an overdue payday or meal straight away: it used to, after every restart.
 
 ## How the art works
 

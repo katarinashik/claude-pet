@@ -848,7 +848,6 @@ function Set-Legs([int]$phase) {
     Set-Top $legs[$i][0] ($legs[$i][1] - $lift)
   }
 }
-function Scroll-Code([int]$n) { }
 # sunglasses on or off; $dx / $dy move them (slid down = 2, held in the hand = 3, 0)
 function Set-Shades([bool]$on, [int]$dx, [int]$dy) { Show-If $shades $on; $shT.X = $dx * $PX; $shT.Y = $dy * $PX }
 # the right arm up at the face instead of on the keyboard
@@ -1037,20 +1036,6 @@ function Set-Paper([bool]$on, [int]$dy) {
 function Set-LaptopAside([bool]$on) { foreach ($el in $laptopAside) { Show-If $el $on } }
 function Set-LaptopTuck([bool]$on) { foreach ($el in $laptopTuck) { Show-If $el $on } }
 # the weather look: '' none, 'snow', 'wind', 'cloud', 'heat', 'storm'; $frame moves flakes, leaves and the cloud
-function Set-Weather([string]$w, [int]$frame) {
-  $b = $frame % 2 -eq 1
-  foreach ($el in $snowA) { Show-If $el ($w -eq 'snow' -and -not $b) }
-  foreach ($el in $snowB) { Show-If $el ($w -eq 'snow' -and $b) }
-  foreach ($el in $beanie) { Show-If $el ($w -eq 'snow') }
-  foreach ($g in $windA) { foreach ($el in $g) { Show-If $el ($w -eq 'wind' -and -not $b) } }
-  foreach ($g in $windB) { foreach ($el in $g) { Show-If $el ($w -eq 'wind' -and $b) } }
-  Show-If $cloud ($w -eq 'cloud' -or $w -eq 'storm'); $cloudT.X = ($frame % 3 - 1) * $PX
-  foreach ($el in $cloudLight) { Show-If $el ($w -eq 'cloud') }
-  foreach ($el in $cloudStorm) { Show-If $el ($w -eq 'storm') }
-  foreach ($el in $bolt) { Show-If $el ($w -eq 'storm' -and $b) }
-  foreach ($el in $sun) { Show-If $el ($w -eq 'heat') }
-  foreach ($el in $sweat) { Show-If $el ($w -eq 'heat' -and -not $b) }
-}
 # the snow scene, piece by piece: falling flakes ($frame), the hat ($hatDy brings it down; 99 = off), the scarf,
 # how much snow lies on the lid and the ears ($pile 0..2), the tongue out for a flake, the snowman ($man 0..3), the building hand
 function Set-Snow([bool]$falling, [int]$frame, [int]$hatDy, [bool]$scarfOn, [int]$pile, [bool]$tongueOut, [int]$man, [bool]$building) {
@@ -1356,7 +1341,6 @@ function Type-Tick {
   $step = [Math]::Floor($t / $rate) % 4   # near hand up, down on a key, far hand up, down on a key
   if ($step -eq 0) { Set-Paws 1 0 $false $false } elseif ($step -eq 1) { Set-Paws 0 0 $true $false }
   elseif ($step -eq 2) { Set-Paws 0 1 $false $false } else { Set-Paws 0 0 $false $true }
-  if ($t % 12 -eq 0) { $S.scroll++; Scroll-Code $S.scroll }
   $bob.Y = 0
   if ($t % 30 -eq 0 -and $win.Opacity -gt 0) { Add-Glyph }
 }
@@ -1510,7 +1494,7 @@ function Weather-Tick {
   if ($S.wxJob) {
     if (-not $S.wxJob.Handle.IsCompleted) {
       # a request that hangs (the laptop went to sleep in the middle, say): drop it after 2 minutes and ask again
-      if ($S.t - $S.wxJob.At -gt 2 * $MIN) { try { [void]$S.wxJob.Ps.BeginStop($null, $null) } catch {}; $S.wxJob = $null; $S.wxNext = 0; Write-PetLog 'weather: no answer, asking again' }
+      if ($S.t - $S.wxJob.At -gt 2 * $MIN) { try { $S.wxJob.Ps.Stop(); $S.wxJob.Ps.Dispose() } catch {}; $S.wxJob = $null; $S.wxNext = 0; Write-PetLog 'weather: no answer, asking again' }
       return
     }
     try {
@@ -1586,7 +1570,7 @@ function End-Flag {
 # returns $true while the flag is up, about seven seconds
 function Flag-Tick {
   if ($S.flag -le 0) {
-    if ($S.flagWant -and $S.shadeStep -eq 0 -and $S.act -eq '') { Start-Flag } else { return $false }
+    if ($S.flagWant -and $S.shadeStep -eq 0 -and $S.act -eq '' -and $S.eat -eq 0 -and $S.det -eq 0 -and $S.bug -eq 0) { Start-Flag } else { return $false }
   }
   $k = $S.flag
   if ($k -gt 98) { End-Flag; return $false }
@@ -1884,7 +1868,7 @@ $acts = @{
 function Start-Act([string]$name) {
   if ($S.cup -gt 0) { End-Coffee }; if ($S.dream -gt 0) { End-Dream }; if ($S.pay -gt 0) { End-Pay }
   Reset-ActLooks
-  $S.act = $name; $S.actK = 0
+  $S.act = $name; $S.actK = 0; $S.actAge = 0
   if ($name -eq 'news' -or $name -like 'w:*') { Write-PetLog "act: $name" }   # so a newspaper or a weather scene can be checked afterwards
 }
 function End-Act {
@@ -1910,11 +1894,11 @@ function Act-Tick {
   $j = $k - $start; $alt = [int]([Math]::Floor($k / 3) % 2)
   Set-Paws 0 0 $false $false
   . $step.f
-  $S.actK++
+  $S.actK++; $S.actAge++
   # the popcorn goes on while Claude Code works, about a minute a bowl; the newspaper as long as the newspaper job
   if ($S.actK -ge $start + $step.d) {
-    if ($step.loop -eq 'busy' -and $S.busy -and -not $S.waiting -and $S.actK -lt $MIN) { $S.actK = $start }
-    if ($step.loop -eq 'news' -and $S.newsRunning -and $S.actK -lt 120 * $MIN) { $S.actK = $start }   # (a run left hanging: two hours at most)
+    if ($step.loop -eq 'busy' -and $S.busy -and -not $S.waiting -and $S.actAge -lt $MIN) { $S.actK = $start }
+    if ($step.loop -eq 'news' -and $S.newsRunning -and $S.actAge -lt 120 * $MIN) { $S.actK = $start }   # (a run left hanging: two hours at most)
   }
   return $true
 }
@@ -1964,6 +1948,9 @@ function Watch-News {
 # (he waits for a free moment, until 11:00 and 13:30); he eats in three bites, then finds a broom and sweeps the crumbs away
 function New-MealDay {
   $S.mealDay = (Get-Date).ToString('yyyy-MM-dd')
+  # the same plan all day, also after a restart: the random times come from the date
+  $dayRng = New-Object System.Random ([int](Get-Date -Format 'yyyyMMdd'))
+  function Rand([int]$a, [int]$b) { $dayRng.Next($a, $b + 1) }
   $S.croissantAt = Rand 510 645; $S.sandwichAt = Rand 740 770
   $S.croissantDone = $false; $S.sandwichDone = $false
   $S.payAt = Rand 600 1020; $S.payDone = -not (Test-PayWeek)          # 10:00-17:00, only in the last week of the month
@@ -2273,7 +2260,7 @@ $tickBody = {
   elseif ($S.state -eq 'pack') {
     if ($S.shadeStep -gt 0) { End-Shades }
     if ($S.cup -gt 0) { End-Coffee }; if ($S.dream -gt 0) { End-Dream }; if ($S.pay -gt 0) { End-Pay }; if ($S.flag -gt 0) { End-Flag }; if ($S.wizPhase -ne '') { End-Wizard }; if ($S.det -gt 0) { End-Det }; if ($S.bug -gt 0) { End-Bug }; if ($S.eat -gt 0) { End-Meal }; if ($S.act -ne '') { End-Act }
-    Set-ArmUp $false
+    Set-ArmUp $false; Set-Happy $false
     Set-Paws 0 0 $false $false
     Set-Eyes 0 2 $blinking
     $bob.Y = 0
@@ -2298,7 +2285,7 @@ $tickBody = {
     Set-LaptopTuck $false
     Set-Eyes 0 3 $blinking
     $bob.Y = 0
-    if ($t % 2 -eq 0) { $S.lv++; Set-Laptop $S.lv }
+    if ($t % 2 -eq 0 -and $S.lv -lt 4) { $S.lv++; Set-Laptop $S.lv }
     if ($S.lv -ge 4) { $S.state = 'code'; $win.Opacity = 1; Set-Paws 0 0 $false $false }
   }
   elseif ($S.state -eq 'nap') {
@@ -2319,7 +2306,9 @@ $tickBody = {
     if ($S.waiting -or $S.calm -gt 0) {
       # Claude Code waits for you, or he has just done something: nothing new starts on its own (while Claude Code works he goes on as usual: that is when you watch him)
       # (each counter below goes down one, this puts it back)
-      foreach ($n in 'nextNap', 'nextSun', 'nextMusic', 'nextCool', 'nextCup', 'nextDream', 'nextPay', 'nextWiz', 'nextDet', 'nextBug') { $S[$n]++ }
+      # (while she is needed the pose chain below doesn't run at all, so its counters aren't put back then)
+      $frozen = @('nextNap', 'nextSun', 'nextMusic'); if (-not $S.waiting) { $frozen += 'nextCool', 'nextCup', 'nextDream', 'nextDet', 'nextBug' }
+      foreach ($n in $frozen) { $S[$n]++ }
     }
     else {
       # the time of day: coffee in the morning, a nap after lunch, music in the evening, the beach on Friday afternoon
@@ -2327,9 +2316,11 @@ $tickBody = {
       if ($S.hour -ge 13 -and $S.hour -lt 15) { $S.nextNap-- }
       if ($S.hour -ge 18) { $S.nextMusic-- }
     }
-    if ($S.cup -eq 0 -and $S.shadeStep -eq 0) { $S.nextNap--; if ($S.nextNap -le 0) { Start-Nap } }
-    if ($S.state -eq 'code' -and $S.cup -eq 0 -and $S.dream -eq 0 -and $S.pay -eq 0 -and $S.flag -eq 0 -and $S.wizPhase -eq '' -and $S.det -eq 0 -and $S.bug -eq 0 -and $S.eat -eq 0 -and $S.act -eq '' -and $S.shadeStep -eq 0) { if (-not $S.sunDone -and $S.minute -ge $S.sunAt -and $S.minute -lt 1140) { Mark-Done 'sun'; Start-Sun } }
-    if ($S.state -eq 'code' -and $S.cup -eq 0 -and $S.shadeStep -eq 0 -and -not $S.cool) { $S.nextMusic--; if ($S.nextMusic -le 0) { Start-Music } }
+    # nap, beach and music only from plain typing, and not while Claude Code waits for her
+    $plain = $S.state -eq 'code' -and -not $S.waiting -and $S.cup -eq 0 -and $S.dream -eq 0 -and $S.pay -eq 0 -and $S.flag -eq 0 -and $S.wizPhase -eq '' -and $S.det -eq 0 -and $S.bug -eq 0 -and $S.eat -eq 0 -and $S.act -eq '' -and $S.shadeStep -eq 0
+    if ($plain) { $S.nextNap--; if ($S.nextNap -le 0) { Start-Nap } }
+    if ($plain) { if (-not $S.sunDone -and $S.minute -ge $S.sunAt -and $S.minute -lt 1140) { Mark-Done 'sun'; Start-Sun } }
+    if ($plain -and -not $S.cool) { $S.nextMusic--; if ($S.nextMusic -le 0) { Start-Music } }
     if (Call-Tick) { }
     elseif (Shades-Tick) { }
     elseif (Flag-Tick) { }
@@ -2412,6 +2403,7 @@ $scene.Add_MouseLeftButtonDown({
   if ($S.flag -gt 0) { End-Flag }
   if ($S.wizPhase -ne '') { End-Wizard }; if ($S.det -gt 0) { End-Det }; if ($S.bug -gt 0) { End-Bug }; if ($S.eat -gt 0) { End-Meal }; if ($S.act -ne '') { End-Act }
   $S.lv = 4; Set-Laptop 4; Set-LaptopTuck $false; Set-Legs -1; $flip.ScaleX = 1
+  Set-ArmUp $false; Set-Happy $false; $S.greet = $false
   $S.state = 'code'
 })
 
@@ -2435,6 +2427,7 @@ $miHome.Add_SubmenuOpened({
     $it.IsCheckable = $true; $it.IsChecked = ($wa.Left -eq $mine.Left -and $wa.Top -eq $mine.Top)
     $it.Add_Click({
       param($src, $ev)
+      if ($S.state -eq 'bye' -or $S.state -eq 'greet') { return }
       Save-MyScreen ([int]$src.Tag)
       $spot = Get-HomeSpot
       if ($S.state -eq 'nap') { End-Nap }; if ($S.state -eq 'music') { End-Music }; if ($S.state -eq 'sun') { End-Sun }
@@ -2491,7 +2484,7 @@ $miPay.Add_Click({
 [void]$menu.Items.Add($miPay)
 $miFlag = New-Object System.Windows.Controls.MenuItem
 $miFlag.Header = 'Task done!'
-$miFlag.Add_Click({ if ($S.state -eq 'code' -and $S.flag -eq 0 -and $S.shadeStep -eq 0) { Start-Flag } })
+$miFlag.Add_Click({ if ($S.state -eq 'code' -and $S.flag -eq 0 -and $S.shadeStep -eq 0 -and $S.eat -eq 0 -and $S.det -eq 0 -and $S.bug -eq 0) { Start-Flag } })
 [void]$menu.Items.Add($miFlag)
 $miWiz = New-Object System.Windows.Controls.MenuItem
 $miWiz.Header = 'Wizard hat on / off'
@@ -2583,7 +2576,7 @@ $win.Add_Loaded({
   $S.h = $r.Bottom - $r.Top
   $S.margin = [int](40 * $S.w / $win.Width)
   $S.speed = 10.0 * $S.w / $win.Width
-  Set-Laptop 4; Set-Paws 0 0 $false $false; Scroll-Code 0
+  Set-Laptop 4; Set-Paws 0 0 $false $false
   $bang.Visibility = 'Hidden'
   $timer.Start()
 })
