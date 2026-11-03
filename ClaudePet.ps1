@@ -1226,18 +1226,34 @@ $S = @{
   musicPhase = ''; musicT = 0; musicLen = 0; nextMusic = (Rand (10 * $MIN) (20 * $MIN))
   bang = 0; hop = 0; lv = 4
   hwnd = [IntPtr]::Zero; w = 0; h = 0; margin = 40
-  px = 0.0; py = 0.0; speed = 10.0; path = (New-Object System.Collections.ArrayList); target = $null
+  px = 0.0; py = 0.0; speed = 10.0; path = (New-Object System.Collections.ArrayList); target = $null; screens = ''
 }
 
-# his screen: the one you picked in the menu (remembered in screen.txt), the main screen if it isn't there
+# his screen: the one you picked in the menu, remembered in screen.txt by where it stands ('left', 'right' or
+# 'from-left N'), not by Windows' number: the numbers shuffle when a monitor is plugged in. Without a choice: the right one
 $screenFile = Join-Path $petDir 'screen.txt'
 function Get-MyScreen {
-  $areas = @([PetWin]::WorkAreas()); $main = @([PetWin]::Primaries())
-  $i = -1; try { $i = [int](Get-Content $screenFile -ErrorAction Stop | Select-Object -First 1) } catch {}
-  if ($i -lt 0 -or $i -ge $areas.Count) { $i = [Math]::Max(0, [Array]::IndexOf($main, $true)) }
-  $areas[$i]
+  $byLeft = @([PetWin]::WorkAreas() | Sort-Object Left)
+  $want = 'right'; try { $want = [string](Get-Content $screenFile -ErrorAction Stop | Select-Object -First 1) } catch {}
+  if ($want -eq 'left') { return $byLeft[0] }
+  if ($want -match '^from-left (\d+)$' -and [int]$Matches[1] -ge 1 -and [int]$Matches[1] -le $byLeft.Count) { return $byLeft[[int]$Matches[1] - 1] }
+  $byLeft[-1]
 }
-function Save-MyScreen([int]$i) { if ($TestSeconds -gt 0) { return }; try { Set-Content $screenFile $i } catch {} }
+function Save-MyScreen([string]$where) { if ($TestSeconds -gt 0) { return }; try { Set-Content $screenFile $where } catch {} }
+# a monitor plugged in or out, or the screens rearranged: he goes straight back to the corner of his screen
+function Watch-Screens {
+  $sig = (@([PetWin]::WorkAreas()) | ForEach-Object { '{0},{1},{2},{3}' -f $_.Left, $_.Top, $_.Right, $_.Bottom }) -join ';'
+  if ($S.screens -eq '') { $S.screens = $sig; return }
+  if ($sig -eq $S.screens) { return }
+  $S.screens = $sig
+  Write-PetLog "the screens changed: $sig"
+  if ($S.state -eq 'hidden' -or $S.state -eq 'bye') { return }
+  $spot = Get-HomeSpot
+  if ($S.state -eq 'walk') { $S.path.Clear(); [void]$S.path.Add(@{ x = $spot.x; y = $spot.y; hop = $true }); return }
+  if ($S.state -eq 'pack') { $S.target = $spot; return }
+  $S.px = [double]$spot.x; $S.py = [double]$spot.y
+  [PetWin]::MoveTo($S.hwnd, [int]$S.px, [int]$S.py)
+}
 # his place: the bottom-right corner of his screen, just above the taskbar
 function Get-HomeSpot {
   $wa = Get-MyScreen
@@ -2155,7 +2171,7 @@ $tickBody = {
   $S.t++
   $t = $S.t
   $check = $S.fresh -or ($t % 12 -eq 0)
-  if ($t % 12 -eq 6) { Watch-Done; Watch-Claude; Weather-Tick; Watch-News }
+  if ($t % 12 -eq 6) { Watch-Done; Watch-Claude; Weather-Tick; Watch-News; Watch-Screens }
   if ($t % 120 -eq 0) { $now = Get-Date; $S.hour = $now.Hour; $S.minute = $now.Hour * 60 + $now.Minute; $S.friday = $now.DayOfWeek -eq 'Friday'; if ($S.mealDay -ne $now.ToString('yyyy-MM-dd')) { New-MealDay } }
   if ($Log -and ($t % 6 -eq 0)) {
     $c = [PetWin]::GetRect($S.hwnd)
@@ -2423,12 +2439,13 @@ $miHome.Add_SubmenuOpened({
     elseif ($areas.Count -eq 2) { $label = @('Left screen', 'Right screen')[$rank] }
     else { $label = 'Screen {0} from the left' -f ($rank + 1) }
     if ($main[$i]) { $label += ' (main)' }
-    $it.Header = $label; $it.Tag = $i
+    $it.Header = $label
+    if ($rank -eq $areas.Count - 1) { $it.Tag = 'right' } elseif ($rank -eq 0) { $it.Tag = 'left' } else { $it.Tag = 'from-left {0}' -f ($rank + 1) }
     $it.IsCheckable = $true; $it.IsChecked = ($wa.Left -eq $mine.Left -and $wa.Top -eq $mine.Top)
     $it.Add_Click({
       param($src, $ev)
       if ($S.state -eq 'bye' -or $S.state -eq 'greet') { return }
-      Save-MyScreen ([int]$src.Tag)
+      Save-MyScreen ([string]$src.Tag)
       $spot = Get-HomeSpot
       if ($S.state -eq 'nap') { End-Nap }; if ($S.state -eq 'music') { End-Music }; if ($S.state -eq 'sun') { End-Sun }
       $S.target = $spot; $S.state = 'pack'

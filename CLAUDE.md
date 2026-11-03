@@ -1,6 +1,6 @@
 # Claude desktop pet
 
-A little pixel Claude that sits in the bottom-right corner of the screen Katya picks (right-click → Screen, remembered in `%USERPROFILE%\ClaudePet\screen.txt`), always on top of every window, codes on a laptop, does little activities, and reacts to Claude Code through hooks. He walks along the taskbar only when she picks another screen. He no longer hides or moves when a window covers him: she wants to see him all the time. One PowerShell 5.1 + WPF script, no other dependencies.
+A little pixel Claude that sits in the bottom-right corner of the screen Katya picks (right-click → Screen, remembered in `%USERPROFILE%\ClaudePet\screen.txt` by where it stands: `left`, `right` or `from-left N`, never by Windows' monitor number, which shuffles when she plugs in a third screen; default and her choice: the rightmost screen). When monitors are plugged in, unplugged or rearranged, `Watch-Screens` (about once a second) puts him straight back in that corner: once he stayed at the old coordinates, off every screen. He is always on top of every window, codes on a laptop, does little activities, and reacts to Claude Code through hooks. He walks along the taskbar only when she picks another screen. He no longer hides or moves when a window covers him: she wants to see him all the time. One PowerShell 5.1 + WPF script, no other dependencies.
 
 ## Files
 
