@@ -1046,7 +1046,7 @@ function Set-RainUmb([int]$open) {
   foreach ($el in $armR) { Show-If $el ($open -eq 0 -and $S.lv -ge 4) }
 }
 # the big umbrella: its canopy up or not; his walk away from the laptop ($dx art pixels to the right, the closed umbrella in his hand)
-function Set-BigUmb([bool]$up) { $S.parasolUp = $up; Show-All $bigUmb $up; if (-not $up) { Show-All @($bigRainA, $bigRainB) $false } }
+function Set-BigUmb([bool]$up) { if ($up -ne $S.parasolUp) { Write-PetLog $(if ($up) { 'big umbrella up' } else { 'big umbrella down' }) }; $S.parasolUp = $up; Show-All $bigUmb $up; if (-not $up) { Show-All @($bigRainA, $bigRainB) $false } }
 function Set-Away([int]$dx, [bool]$carry) {
   $bob.X = $dx * $PX; $legT.X = $dx * $PX
   Show-If $bigCarry $carry
@@ -1964,7 +1964,10 @@ function Ambient-Tick {
   if ($w -ne $S.ambWas) { Clear-Ambient; $S.ambWas = $w }
   switch ($w) {
     'snow' { Show-All $snowA (-not $alt); Show-All $snowB $alt }
-    'drizzle' { Show-All $drizA (-not $alt); Show-All $drizB $alt }
+    'drizzle' {
+      if ($S.parasolUp) { Show-All @($drizA, $drizB) $false; Show-All $bigRainA (-not $alt); Show-All $bigRainB $alt }
+      else { Show-All @($bigRainA, $bigRainB) $false; Show-All $drizA (-not $alt); Show-All $drizB $alt }
+    }
     'rain' {
       if ($S.parasolUp) { Show-All @($rainA, $rainB) $false; Show-All $bigRainA (-not $alt); Show-All $bigRainB $alt }
       else { Show-All @($bigRainA, $bigRainB) $false; Show-All $rainA (-not $alt); Show-All $rainB $alt }
@@ -2437,8 +2440,8 @@ $tickBody = {
     if ($plain) { $S.nextNap--; if ($S.nextNap -le 0) { Start-Nap } }
     if ($plain) { if (-not $S.sunDone -and $S.minute -ge $S.sunAt -and $S.minute -lt 1140) { Mark-Done 'sun'; Start-Sun } }
     if ($plain -and -not $S.cool) { $S.nextMusic--; if ($S.nextMusic -le 0) { Start-Music } }
-    # the big umbrella: up after 5 min of rain, down once the rain has stopped (it stays up 2 min at least)
-    $rainy = $S.wx -eq 'rain' -or $S.wx -eq 'storm'
+    # the big umbrella: up after 5 min of rain (drizzle too), down once the rain has stopped (it stays up 2 min at least)
+    $rainy = $S.wx -eq 'rain' -or $S.wx -eq 'storm' -or $S.wx -eq 'drizzle'
     if (-not $rainy) { $S.rainSince = 0 } elseif ($S.rainSince -eq 0) { $S.rainSince = $S.t }
     if ($plain -and $S.state -eq 'code') {
       if (-not $S.parasolUp -and $rainy -and $S.t - $S.rainSince -ge 5 * $MIN) { Start-Parasol $true }
