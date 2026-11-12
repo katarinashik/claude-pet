@@ -4,7 +4,7 @@ A little pixel Claude who lives in the corner of your Windows screen, types on h
 
 ![Typing](storyboards/typing-angle.png)
 
-He always stays on top, in the bottom-right corner of the screen you choose. Now and then he takes a break: coffee, sunglasses, a daydream, a bug hunt, music, a nap. He eats a croissant in the morning and a sandwich at lunch, then sweeps up the crumbs. The weather outside changes his scenes: snow, rain, fog, wind, heat, cold.
+He always stays on top, in the bottom-right corner of the screen you choose. Now and then he takes a break: coffee, sunglasses, a daydream, a bug hunt, music, a nap. He eats a croissant in the morning and a sandwich at lunch, then sweeps up the crumbs. The weather outside changes his scenes: snow, rain, fog, wind, heat, cold. After five minutes of rain he plants a big umbrella next to him and works on, dry.
 
 With Claude Code he:
 

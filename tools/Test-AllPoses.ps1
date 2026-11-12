@@ -38,6 +38,7 @@ function Walk-Menu($items, [string]$path) {
 }
 function Reset-Pet {
   if ($S.state -eq 'nap') { End-Nap }; if ($S.state -eq 'music') { End-Music }; if ($S.state -eq 'sun') { End-Sun }
+  if ($S.state -eq 'parasol') { End-Parasol }; Set-BigUmb $false
   if ($S.shadeStep -gt 0) { End-Shades }
   if ($S.cup -gt 0) { End-Coffee }; if ($S.dream -gt 0) { End-Dream }; if ($S.pay -gt 0) { End-Pay }; if ($S.flag -gt 0) { End-Flag }; if ($S.wizPhase -ne '') { End-Wizard }; if ($S.det -gt 0) { End-Det }; if ($S.bug -gt 0) { End-Bug }; if ($S.eat -gt 0) { End-Meal }; if ($S.act -ne '') { End-Act }
   $S.lv = 4; Set-Laptop 4; Set-LaptopTuck $false; Set-Legs -1; $flip.ScaleX = 1; Set-ArmUp $false

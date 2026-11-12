@@ -582,6 +582,30 @@ $umbShaft = Add-Px $rainUmb 11 -1 1 7 $shaftC
 [void](Add-Art $rainUmb 11 6 @('HH..', 'HH..', '..A.', '...A', '....A') $umbMap)
 foreach ($el in @($rainA) + @($rainB) + @($rainTopA) + @($rainTopB) + @($splash) + @($umbClosed) + @($umbHalf) + @($umbFull) + @($umbShaft)) { $el.Visibility = 'Hidden' }
 $rainUmb.Visibility = 'Hidden'
+# after 5 min of rain: a big umbrella planted just past the right edge; we see the left half of its canopy over him and the laptop
+$bigUmb = Add-Art $scene 0 -9 @(
+  '...........DDDDDDDDDDD',
+  '.......DDDDBBBBBBBBBBL',
+  '.....DDBBBBBBBBBBBBBLB',
+  '...DDBBBBBBBBBBBBBLBBB',
+  '..DBBBBBBBLBBBBBBLBBBB',
+  '.DBBBBBBLBBBBBBBLBBBBB',
+  'DBBBBBLBBBBBBBBLBBBBBB',
+  'DD.DDD.DDDDDD.DDD.DDDD') $umbMap
+# the rain then only falls above the canopy, at its left
+$bigRainA = foreach ($p in @(@(2, -9), @(8, -9), @(3, -8))) { Add-Px $scene $p[0] $p[1] 1 2 $rainC }
+$bigRainB = foreach ($p in @(@(5, -9), @(9, -9), @(1, -7))) { Add-Px $scene $p[0] $p[1] 1 2 $rainC }
+# carried there closed: a long pole in his right hand
+$bigCarry = New-Object System.Windows.Controls.Canvas
+$bigCarry.IsHitTestVisible = $false
+[void]$upper.Children.Add($bigCarry)
+[void](Add-Art $bigCarry 10 -9 @('.D.', 'DBD', 'DBD', 'DBD', 'DBD', 'DBD', 'DBD', 'DLD', '.S.', '.S.', '.S.', '.S.', '.S.', '.S.', '.S.', '.S.', '.S.') $umbMap)
+[void](Add-Art $bigCarry 11 6 @('HH..', 'HH..', '..A.', '...A', '....A') $umbMap)
+foreach ($el in @($bigUmb) + @($bigRainA) + @($bigRainB)) { $el.Visibility = 'Hidden' }
+$bigCarry.Visibility = 'Hidden'
+# he walks off and back without the laptop: the body ($bob.X) and the legs move together
+$legT = New-Object System.Windows.Media.TranslateTransform
+foreach ($lg in $legs) { $lg[0].RenderTransform = $legT }
 # popcorn: when Claude Code works on a long task he sets a striped bucket on the laptop lid and watches, taking one piece at a time
 $popRed = New-Brush '#E5484D'; $popWhite = $logo; $popC = New-Brush '#FFF4D6'; $popY = New-Brush '#F2C14E'
 $popG = New-Object System.Windows.Controls.Canvas
@@ -1021,6 +1045,14 @@ function Set-RainUmb([int]$open) {
   Show-If $umbShaft ($open -eq 3)
   foreach ($el in $armR) { Show-If $el ($open -eq 0 -and $S.lv -ge 4) }
 }
+# the big umbrella: its canopy up or not; his walk away from the laptop ($dx art pixels to the right, the closed umbrella in his hand)
+function Set-BigUmb([bool]$up) { $S.parasolUp = $up; Show-All $bigUmb $up; if (-not $up) { Show-All @($bigRainA, $bigRainB) $false } }
+function Set-Away([int]$dx, [bool]$carry) {
+  $bob.X = $dx * $PX; $legT.X = $dx * $PX
+  Show-If $bigCarry $carry
+  foreach ($el in $armR) { Show-If $el ($dx -eq 0 -and -not $carry -and $S.lv -ge 4) }
+  Show-If $nubL ($dx -eq 0 -and $S.lv -ge 4)
+}
 # the popcorn bucket on the lid; $hand: 0 none (hand on the keyboard), 1 in the bucket, 2 at his mouth; $dy lifts it in
 function Set-Popcorn([bool]$on, [int]$hand, [int]$dy) {
   Show-If $popG $on; $popT.Y = $dy * $PX
@@ -1221,6 +1253,7 @@ $S = @{
   act = ''; actK = 0; wx = ''; ambWas = ''; nextWep = 0; newsRunning = $false; newsWant = $false; busySince = [long]0; popAt = 0
   eat = 0; food = 'croissant'; mealDay = ''; croissantAt = 0; sandwichAt = 0; croissantDone = $false; sandwichDone = $false; minute = (Get-Date).Hour * 60 + (Get-Date).Minute
   sunPhase = ''; sunT = 0; sunLen = 0; nextSun = (Rand 5000 9000)
+  parasolPhase = ''; parasolT = 0; parasolUp = $false; parasolUntil = 0; rainSince = 0
   busy = $false; waiting = $false; calling = $false; callT = 0; hour = (Get-Date).Hour; friday = $false
   napPhase = ''; napT = 0; napLen = 0; nextNap = (Rand (45 * $MIN) (90 * $MIN))
   musicPhase = ''; musicT = 0; musicLen = 0; nextMusic = (Rand (10 * $MIN) (20 * $MIN))
@@ -1269,6 +1302,7 @@ function Get-AreaAt([double]$x, [double]$y) {
 # then the pet closes. The start is the same in reverse (Greet-Tick): in from the right edge, a wave, the laptop opens
 function Start-Bye {
   if ($S.state -eq 'bye') { return }
+  if ($S.state -eq 'parasol') { End-Parasol }
   if ($S.state -eq 'nap') { End-Nap }; if ($S.state -eq 'music') { End-Music }; if ($S.state -eq 'sun') { End-Sun }
   if ($S.shadeStep -gt 0) { End-Shades }
   if ($S.cup -gt 0) { End-Coffee }; if ($S.dream -gt 0) { End-Dream }; if ($S.pay -gt 0) { End-Pay }; if ($S.flag -gt 0) { End-Flag }; if ($S.wizPhase -ne '') { End-Wizard }; if ($S.det -gt 0) { End-Det }; if ($S.bug -gt 0) { End-Bug }; if ($S.eat -gt 0) { End-Meal }; if ($S.act -ne '') { End-Act }
@@ -1901,7 +1935,7 @@ function Act-Tick {
     if (-not $free) { return $false }
     if ($S.newsWant) { $S.newsWant = $false; Start-Act 'news' }
     elseif ($S.busy -and $S.busySince -gt 0 -and ([DateTime]::UtcNow.Ticks - $S.busySince) -gt [long]6000000000 -and $S.t -ge $S.popAt) { Start-Act 'pop' }
-    elseif ($S.wx -ne '') { $S.nextWep--; if ($S.nextWep -le 0) { Start-Act "w:$($S.wx)" } }
+    elseif ($S.wx -ne '' -and -not $S.parasolUp) { $S.nextWep--; if ($S.nextWep -le 0) { Start-Act "w:$($S.wx)" } }
     if ($S.act -eq '') { return $false }
   }
   $k = $S.actK; $start = 0; $step = $null
@@ -1920,7 +1954,7 @@ function Act-Tick {
 }
 # the weather all the time it lasts, between the scenes: flakes, drops, mist, the sun, frost... (no props in his hands)
 function Clear-Ambient {
-  Show-All @($snowA, $snowB, $drizA, $drizB, $rainA, $rainB, $cloudStorm, $bolt, $gustA, $gustB, $sun, $sunRays, $mistThin, $mistThick, $frost, $breathA) $false
+  Show-All @($snowA, $snowB, $drizA, $drizB, $rainA, $rainB, $bigRainA, $bigRainB, $cloudStorm, $bolt, $gustA, $gustB, $sun, $sunRays, $mistThin, $mistThick, $frost, $breathA) $false
   foreach ($g in @($leavesA) + @($leavesB)) { Show-All $g $false }
   $cloud.Visibility = 'Hidden'; $flash.Visibility = 'Hidden'; $sky.Visibility = 'Hidden'; $mist.Visibility = 'Hidden'
 }
@@ -1931,11 +1965,20 @@ function Ambient-Tick {
   switch ($w) {
     'snow' { Show-All $snowA (-not $alt); Show-All $snowB $alt }
     'drizzle' { Show-All $drizA (-not $alt); Show-All $drizB $alt }
-    'rain' { Show-All $rainA (-not $alt); Show-All $rainB $alt }
+    'rain' {
+      if ($S.parasolUp) { Show-All @($rainA, $rainB) $false; Show-All $bigRainA (-not $alt); Show-All $bigRainB $alt }
+      else { Show-All @($bigRainA, $bigRainB) $false; Show-All $rainA (-not $alt); Show-All $rainB $alt }
+    }
     'storm' {
-      $cloud.Visibility = 'Visible'; $cloudT.X = 0; Show-All $cloudLight $false; Show-All $cloudStorm $true
-      Show-All $rainA (-not $alt); Show-All $rainB $alt
-      Show-All $bolt (($t % 280) -lt 6); Show-If $flash (($t % 280) -lt 2)   # now and then a strike
+      # under the big umbrella: no cloud or bolt behind the canopy, only the flash
+      if ($S.parasolUp) { $cloud.Visibility = 'Hidden'; Show-All @($rainA, $rainB, $bolt) $false; Show-All $bigRainA (-not $alt); Show-All $bigRainB $alt }
+      else {
+        Show-All @($bigRainA, $bigRainB) $false
+        $cloud.Visibility = 'Visible'; $cloudT.X = 0; Show-All $cloudLight $false; Show-All $cloudStorm $true
+        Show-All $rainA (-not $alt); Show-All $rainB $alt
+        Show-All $bolt (($t % 280) -lt 6)
+      }
+      Show-If $flash (($t % 280) -lt 2)   # now and then a strike
     }
     'wind' {
       Show-All $gustA (-not $alt); Show-All $gustB $alt
@@ -2035,6 +2078,61 @@ function Meal-Tick {
   }
   $S.eat++
   return $true
+}
+# the big umbrella: after 5 min of rain he takes it off the right edge, plants it there, comes back and works dry under it;
+# once the rain stops he goes and takes it down. $up: put it up (or take it down)
+function Start-Parasol([bool]$up) {
+  $S.state = 'parasol'; $S.parasolT = 0
+  if ($up) { $S.parasolPhase = 'fetch' } else { $S.parasolPhase = 'look' }
+}
+# ends at once, as if it were done (a drag, a screen change, bye)
+function End-Parasol {
+  $fetching = $S.parasolPhase -eq 'fetch' -or (($S.parasolPhase -eq 'out' -or $S.parasolPhase -eq 'plant') -and $bigCarry.Visibility -eq 'Visible')
+  if ($fetching) { Set-BigUmb $true; $S.parasolUntil = $S.t + 2 * $MIN }
+  elseif ($S.parasolPhase -eq 'look' -or $S.parasolPhase -eq 'out' -or $S.parasolPhase -eq 'plant') { Set-BigUmb $false }
+  Set-Away 0 $false; Set-Legs -1; $bob.Y = 0; Set-Happy $false; $bang.Visibility = 'Hidden'
+  $S.parasolPhase = ''
+  if ($S.state -eq 'parasol') { $S.state = 'code' }
+}
+function Parasol-Tick {
+  $S.parasolT++; $k = $S.parasolT
+  Set-Paws 0 0 $false $false
+  $walk = [int]([Math]::Floor($k / 3) % 2)
+  switch ($S.parasolPhase) {
+    'fetch' {
+      # enough rain! a "!", then the big umbrella in his hand, a look to the right
+      $bob.Y = 0; Set-Legs -1
+      if ($k -le 12) { Set-Eyes 0 2 $false; $bang.Visibility = 'Visible' }
+      else { Set-Away 0 $true; Set-Eyes 1 4 $false }
+      if ($k -ge 24) { $S.parasolPhase = 'out'; $S.parasolT = 0 }
+    }
+    'look' {
+      # the rain has stopped: a look up at the canopy, then off to the right to take it down
+      $bob.Y = 0; Set-Legs -1; Set-Eyes 1 2 $false
+      if ($k -ge 15) { $S.parasolPhase = 'out'; $S.parasolT = 0 }
+    }
+    'out' {
+      $dx = [int][Math]::Min(24, [Math]::Floor($k / 2))
+      Set-Away $dx ($bigCarry.Visibility -eq 'Visible'); Set-Legs $walk; $bob.Y = $walk * $PX; Set-Eyes 1 4 $false
+      if ($dx -ge 24) { $S.parasolPhase = 'plant'; $S.parasolT = 0 }
+    }
+    'plant' {
+      # out of sight, past the edge: up it goes (or down)
+      Set-Legs -1; $bob.Y = 0
+      if ($k -eq 10) { Set-BigUmb ($bigCarry.Visibility -eq 'Visible'); $bigCarry.Visibility = 'Hidden' }
+      if ($k -ge 20) { $S.parasolPhase = 'back'; $S.parasolT = 0 }
+    }
+    'back' {
+      $dx = [int][Math]::Max(0, 24 - [Math]::Floor($k / 2))
+      Set-Away $dx $false; Set-Legs $walk; $bob.Y = $walk * $PX; Set-Eyes -1 4 $false
+      if ($dx -le 0) { $S.parasolPhase = 'home'; $S.parasolT = 0; Set-Legs -1; $bob.Y = 0 }
+    }
+    'home' {
+      # back at the laptop: happy to be dry
+      if ($S.parasolUp) { Set-Happy $true } else { Set-Eyes 0 4 $false }
+      if ($k -ge 20) { Set-Happy $false; $S.parasolPhase = ''; $S.state = 'code'; if ($S.parasolUp) { $S.parasolUntil = $S.t + 2 * $MIN } }
+    }
+  }
 }
 # sunbath: laptop away, the deck chair slides in, the umbrella comes up and opens, he lies back with his cocktail; then all of it backwards
 function Start-Sun {
@@ -2274,6 +2372,7 @@ $tickBody = {
     Start-Walk $spot.x $spot.y
   }
   elseif ($S.state -eq 'pack') {
+    if ($S.parasolUp) { Set-BigUmb $false }
     if ($S.shadeStep -gt 0) { End-Shades }
     if ($S.cup -gt 0) { End-Coffee }; if ($S.dream -gt 0) { End-Dream }; if ($S.pay -gt 0) { End-Pay }; if ($S.flag -gt 0) { End-Flag }; if ($S.wizPhase -ne '') { End-Wizard }; if ($S.det -gt 0) { End-Det }; if ($S.bug -gt 0) { End-Bug }; if ($S.eat -gt 0) { End-Meal }; if ($S.act -ne '') { End-Act }
     Set-ArmUp $false; Set-Happy $false
@@ -2316,6 +2415,7 @@ $tickBody = {
     if ($S.waiting -and $S.sunPhase -eq 'lie') { $S.sunPhase = 'up'; $S.sunT = 0 }
     Sun-Tick
   }
+  elseif ($S.state -eq 'parasol') { Parasol-Tick }
   else {
     # coding
     if ($S.calm -gt 0) { $S.calm-- }
@@ -2337,6 +2437,13 @@ $tickBody = {
     if ($plain) { $S.nextNap--; if ($S.nextNap -le 0) { Start-Nap } }
     if ($plain) { if (-not $S.sunDone -and $S.minute -ge $S.sunAt -and $S.minute -lt 1140) { Mark-Done 'sun'; Start-Sun } }
     if ($plain -and -not $S.cool) { $S.nextMusic--; if ($S.nextMusic -le 0) { Start-Music } }
+    # the big umbrella: up after 5 min of rain, down once the rain has stopped (it stays up 2 min at least)
+    $rainy = $S.wx -eq 'rain' -or $S.wx -eq 'storm'
+    if (-not $rainy) { $S.rainSince = 0 } elseif ($S.rainSince -eq 0) { $S.rainSince = $S.t }
+    if ($plain -and $S.state -eq 'code') {
+      if (-not $S.parasolUp -and $rainy -and $S.t - $S.rainSince -ge 5 * $MIN) { Start-Parasol $true }
+      elseif ($S.parasolUp -and -not $rainy -and $S.t -ge $S.parasolUntil) { Start-Parasol $false }
+    }
     if (Call-Tick) { }
     elseif (Shades-Tick) { }
     elseif (Flag-Tick) { }
@@ -2367,7 +2474,7 @@ $tickBody = {
   }
 
   # a pose just ended: 2 minutes of plain typing before the next random one (the laptop stays his normal place)
-  $posing = $S.state -eq 'nap' -or $S.state -eq 'music' -or $S.state -eq 'sun' -or $S.cool -or $S.shadeStep -gt 0 -or $S.cup -gt 0 -or $S.dream -gt 0 -or $S.pay -gt 0 -or $S.flag -gt 0 -or $S.wizPhase -ne '' -or $S.det -gt 0 -or $S.bug -gt 0 -or $S.eat -gt 0 -or $S.act -ne ''
+  $posing = $S.state -eq 'nap' -or $S.state -eq 'music' -or $S.state -eq 'sun' -or $S.state -eq 'parasol' -or $S.cool -or $S.shadeStep -gt 0 -or $S.cup -gt 0 -or $S.dream -gt 0 -or $S.pay -gt 0 -or $S.flag -gt 0 -or $S.wizPhase -ne '' -or $S.det -gt 0 -or $S.bug -gt 0 -or $S.eat -gt 0 -or $S.act -ne ''
   if ($S.wasPosing -and -not $posing) { $S.calm = 2 * $MIN }
   $S.wasPosing = $posing
 
@@ -2411,6 +2518,7 @@ $scene.Add_MouseLeftButtonDown({
   }
   if ($S.state -eq 'bye') { return }
   try { $win.DragMove() } catch {}
+  if ($S.state -eq 'parasol') { End-Parasol }
   if ($S.state -eq 'nap') { End-Nap }
   if ($S.state -eq 'music') { End-Music }
   if ($S.state -eq 'sun') { End-Sun }
@@ -2447,6 +2555,7 @@ $miHome.Add_SubmenuOpened({
       if ($S.state -eq 'bye' -or $S.state -eq 'greet') { return }
       Save-MyScreen ([string]$src.Tag)
       $spot = Get-HomeSpot
+      if ($S.state -eq 'parasol') { End-Parasol }
       if ($S.state -eq 'nap') { End-Nap }; if ($S.state -eq 'music') { End-Music }; if ($S.state -eq 'sun') { End-Sun }
       $S.target = $spot; $S.state = 'pack'
     })
@@ -2568,12 +2677,15 @@ $miSun.Add_Click({
   elseif ($S.state -eq 'code' -and $S.shadeStep -eq 0) { Start-Sun }
 })
 [void]$menu.Items.Add($miSun)
+$miParasol = New-Object System.Windows.Controls.MenuItem
+$miParasol.Header = 'Big umbrella up / down'
+$miParasol.Add_Click({ if ($S.state -eq 'code' -and $S.shadeStep -eq 0 -and $S.act -eq '') { Start-Parasol (-not $S.parasolUp) } })
 [void]$menu.Items.Add($miQuit)
 # short menu: the corner, the poses in one submenu, bye
 $menu.Items.Clear()
 $miDo = New-Object System.Windows.Controls.MenuItem
 $miDo.Header = 'Do something'
-foreach ($m in @($miCoffee, $miCroissant, $miSandwich, $miDream, $miShades, $miWiz, $miDet, $miBug, $miNews, $miPop, $miPay, $miFlag, $miNap, $miMusic, $miSun, $miWeather)) { [void]$miDo.Items.Add($m) }
+foreach ($m in @($miCoffee, $miCroissant, $miSandwich, $miDream, $miShades, $miWiz, $miDet, $miBug, $miNews, $miPop, $miPay, $miFlag, $miNap, $miMusic, $miSun, $miParasol, $miWeather)) { [void]$miDo.Items.Add($m) }
 [void]$menu.Items.Add($miHome)
 [void]$menu.Items.Add($miDo)
 [void]$menu.Items.Add((New-Object System.Windows.Controls.Separator))
